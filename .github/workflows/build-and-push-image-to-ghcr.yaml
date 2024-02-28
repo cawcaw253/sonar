@@ -1,7 +1,9 @@
 name: Build and Push container images to GitHub Container Registry
 
 on:
-  push
+  push:
+    branches:
+      - main
 
 jobs:
   create-tag:
@@ -54,9 +56,11 @@ jobs:
       - name: Build and Push
         uses: docker/build-push-action@v5
         with:
-          context: .
-          file: Dockerfile
+          context: ${{ matrix.directory }}
+          file: ${{ matrix.directory }}/Dockerfile
           push: true
           provenance: false
+          no-cache: true
           tags: |
             "ghcr.io/${{ github.repository_owner }}/${{ matrix.directory }}:${{ needs.create-tag.outputs.sha_short }}"
+            "ghcr.io/${{ github.repository_owner }}/${{ matrix.directory }}:latest"
