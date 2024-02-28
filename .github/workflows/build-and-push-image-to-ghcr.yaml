@@ -1,0 +1,62 @@
+name: Build and Push container images to GitHub Container Registry
+
+on:
+  push
+
+jobs:
+  create-tag:
+    outputs:
+      sha_short: ${{ steps.sha_short.outputs.sha_short }}
+    name: Create tag for new image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: SHA short
+        id: sha_short
+        run: |
+          echo "sha_short=sha-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Result
+        run: |
+          echo "sha_short=${{ steps.sha_short.outputs.sha_short }}"
+
+  build-and-push:
+    name: build-and-push
+    runs-on: ubuntu-latest
+    needs: create-tag
+    strategy:
+      matrix:
+        directory: [nginx-blue, nginx-green]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Change Directory
+        run: |
+          cd ${{ matrix.directory }}
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.WRITE_REGISTRY_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and Push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          provenance: false
+          tags: |
+            "ghcr.io/${{ github.repository_owner }}/${{ matrix.directory }}:${{ needs.create-tag.outputs.sha_short }}"
